@@ -1,0 +1,101 @@
+%% DepthMapFusion.m
+% This script reproduces the depth map upsampling method based on image
+% fusion techniques, this work was originally proposed by J. Park on iccv2011
+% "High Quality Depth Map Upsampling for 3D-ToF Cameras"
+%
+% Author: sgzthu @ Deptrum
+% Last Modified: 2019.03.18
+% 
+
+%%
+clear all; 
+close all;
+clc;
+
+%% 
+%% read ground truth image
+im  = imread('data\art-color.png');
+dm = imread('data\art-depth.png');
+
+%% set parameters
+up_scale = 16;
+para.NLS_window_size = 2;
+para.lambda_NLS = 1;
+para.NLS_th = 0.1;
+para.sigma_NLS = 1;
+para.sigma_Color = 1;
+para.seg_penalty = 0.7;
+para.lambda_confWeight = 0.01;
+para.sigma_gdp = 1;
+
+%% iccv 2011
+% complete the depth map with nearest neibor upsampling
+[M N ~] = size(im);
+dm_comp = imresize(dm, [M,N], 'nearest');
+figure
+imshow(dm)
+title('original depth map');
+figure
+imshow(dm_comp)
+title('original depth map with nearest neibor upsampling');
+Num = M*N;      % Number of pixels to be optimize
+outliers = double(dm_comp(:) == 0);
+G = sparse(1:Num,1:Num,1-outliers,Num,Num);      % assign the diagnal value to 1 if not outliers
+
+%% NLS term
+tic
+K_pq = NLS_term_gen(im,para);
+L_NLS = diag(sum(K_pq,1))+diag(sum(K_pq,2))-2*K_pq;
+disp('Non_local struct term calculated!')
+clear K_pq
+toc
+
+%% confidence weighting
+% color similarity term
+tic
+Wc = ColorSimilarity_term_gen(im,para);
+disp('Color Similarity term calculated!')
+toc
+% segmentation term
+tic
+load('data\art-seg.mat');
+Ws = Segmentation_term_gen(seg_level,para);
+disp('segmentation term calculated!')
+toc
+% edge silience term
+tic
+load('data\art-edge.mat');
+We = Edge_term_gen(edge_map,para);
+disp('edge term calculated!')
+toc
+% guided depth map term
+tic
+guided_depth_map = imresize(dm, [M,N], 'bicubic');
+Wg = GDP_term_gen(guided_depth_map,para);
+disp('guided depth map term calculated!')
+toc
+
+% combine all weights
+W_pq = Wc;%.*Ws.*Wg;%.*Wg;
+clear Wc Ws We Wg
+% normalize each row (sum of coefficients for each p)
+norm = 1./sum(W_pq.');  
+[indx,indy,value] = find(W_pq); % 找出所有非零值坐标
+norm = sparse(indx,indy,norm(indx),Num,Num); 
+W_pq = W_pq .* norm;
+
+L_s = diag(sum(W_pq,1))+diag(sum(W_pq,2))-2*W_pq;
+clear W_pq
+
+%% solving
+para.lambda_NLS = 0;
+para.lambda_confWeight = 0;
+b = (1-outliers).*double(dm_comp(:));
+A = para.lambda_NLS*L_NLS+para.lambda_confWeight*L_s+G;
+A(1,1)
+nnz(A)
+dm_sup_res = A\b;
+toc
+dm_sup_res = uint8(reshape(dm_sup_res,M,N));
+figure
+imshow(dm_sup_res)
