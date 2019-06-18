@@ -3,7 +3,7 @@
 % this work was originally proposed by J. Park on iccv2011
 % "High Quality Depth Map Upsampling for 3D-ToF Cameras"
 %
-% Author: sgzthu @ Deptrum
+% Author: rui wang & sgzthu
 % Last Modified: 2019.03.19
 % 
 function W_pq = ColorSimilarity_term_gen(im,para)
