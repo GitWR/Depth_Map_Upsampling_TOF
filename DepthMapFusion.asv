@@ -3,7 +3,7 @@
 % fusion techniques, this work was originally proposed by J. Park on iccv2011
 % "High Quality Depth Map Upsampling for 3D-ToF Cameras"
 %
-% Author: sgzthu @ Deptrum
+% Author: rui wang & sgzthu
 % Last Modified: 2019.03.18
 % 
 
@@ -80,7 +80,7 @@ W_pq = Wc;%.*Ws.*Wg;%.*Wg;
 clear Wc Ws We Wg
 % normalize each row (sum of coefficients for each p)
 norm = 1./sum(W_pq.');  
-[indx,indy,value] = find(W_pq); % 找出所有非零值坐标
+[indx,indy,value] = find(W_pq); % 脮脪鲁枚脣霉脫脨路脟脕茫脰碌脳酶卤锚
 norm = sparse(indx,indy,norm(indx),Num,Num); 
 W_pq = W_pq .* norm;
 
